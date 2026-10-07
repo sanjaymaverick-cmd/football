@@ -72,6 +72,10 @@ static func net() -> AudioStreamWAV:
 	return _hit(0.32, 140.0, 260.0, 23, 0.35)
 
 
+static func land() -> AudioStreamWAV:
+	return _hit(0.16, 90.0, 160.0, 13, 0.7)
+
+
 static func _hit(seconds: float, low_hz: float, ring_hz: float, seed: int, noise_mix: float) -> AudioStreamWAV:
 	var n := int(RATE * seconds)
 	var samples := PackedFloat32Array()
