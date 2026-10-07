@@ -12,9 +12,9 @@ The repo created at the first step of this game is https://github.com/sanjaymave
 
 ## What this is
 
-Portrait Android football game for about a 10-year-old. Godot 4.7, mobile renderer. The player swipes the ball. Screen-up shoots toward the goal. The bow of the swipe curls the ball. There is no joystick.
+Portrait Android football game for about a 10-year-old. Godot 4.7, mobile renderer. The player swipes the ball. Screen-up shoots toward the goal the camera is showing. The bow of the swipe curls the ball. A straight swipe stays straight. There is no joystick.
 
-Control frame: Y-up, right-handed, goal is -Z. Screen-right is world +X. Screen-up is world -Z. A positive bow (path to the right of the chord) is positive `curl_pixels`, which sets negative `angular_velocity.y`. With velocity along -Z, that cross product bends the ball to +X.
+Control frame: Y-up, right-handed, goal is -Z. On the central spot, screen-right is world +X and screen-up is world -Z. On a side spot the camera looks at the goal mouth, so screen-up is the camera forward flattened onto the ground and screen-right is the camera right. A positive bow (path to the right of the chord) is positive `curl_pixels`, which sets negative `angular_velocity.y`. Vertical spin bends to the right of the velocity.
 
 ## Hard rules
 
@@ -63,7 +63,9 @@ Smoke notes that are easy to break:
 - Godot 4 typed arrays reject `var freqs: Array[float] = [1.0] if cond else [3.0]`. Use an untyped array.
 - Quitting mid-loop can print a harmless 2-instance ObjectDB leak.
 
-Last smoke on Jolt, 2026-10-07: `SMOKE_OK`. Curl right about +158, left about -158, straight 0. Shot vz about -27, vy about 7.3, spin y about -7.9. Magnus 70 frames: spin -8 moved x about +0.82, spin +8 moved x about -0.85. Super shot x = 0, vz about -76. Score 150, combo 2, then wall of 3 at (-5.2, 0.11, -1.2). Keeper dive right x about 3.0 with negative roll. Dive left x about -3.0 with positive roll. Fast ball at 60 m/s into the crossbar rebounded: z about -7.47, vz about +24. It did not tunnel.
+Last smoke on Jolt, before the swipe-follow fix: `SMOKE_OK`. Curl right about +158, left about -158, straight 0. Shot vz about -27, vy about 7.3, spin y about -7.9. Magnus 70 frames at 0.036: spin -8 moved x about +0.82, spin +8 moved x about -0.85. Super shot x = 0, vz about -76. Score 150, combo 2, then wall of 3 at (-5.2, 0.11, -1.2). Keeper dive right x about 3.0 with negative roll. Dive left x about -3.0 with positive roll. Fast ball at 60 m/s into the crossbar rebounded: z about -7.47, vz about +24. It did not tunnel.
+
+Swipe-follow fix is pushed. Smoke has not been re-run. Magnus is now 0.10, so the 70-frame bend should be about 2.3 m. Straight curl stays 0. The right-bow sample loses the old `chord.x * 0.28` term and should still be about +155.
 
 ## What is already in the game
 
@@ -73,7 +75,7 @@ Main scene `res://scenes/main.tscn`. Viewport 1080×1920, window override 540×9
 
 Ball (`scripts/ball_controller.gd`, `BallController`): mass 0.43, `continuous_cd` on, linear damp replace 0.05, angular damp replace 0.4, friction 0.8, bounce 0.4. Grass friction 0.9, bounce 0.15, absorbent on. Collision layers: 1 world, 2 ball, 3/4 score and targets. Score zone is a sensor.
 
-Shot numbers, unchanged on purpose: min swipe 40 px, impulse 6 to 13.5, lift 2.2 to 3.4 from how upright the swipe is, `spin_per_pixel` 0.05, max spin 9, `magnus_coefficient` 0.036, super-shot forward multiplier 2.5 with spin cleared. Magnus runs only in the air, via `apply_central_force(angular_velocity.cross(linear_velocity) * magnus_coefficient)`. A SIUUU shot skips Magnus and plays the fire trail.
+Shot numbers: min swipe 40 px, impulse 6 to 13.5, lift 2.2 to 3.4 from how upright the swipe is, `spin_per_pixel` 0.05, max spin 9, `magnus_coefficient` 0.10, super-shot forward multiplier 2.5 with spin cleared. Aim is the swipe chord mapped through the camera's ground axes. Curl is the bow only. Magnus runs only in the air, via `apply_central_force(angular_velocity.cross(linear_velocity) * magnus_coefficient)`. A SIUUU shot skips Magnus, multiplies the horizontal impulse, and plays the fire trail.
 
 Keeper (`scripts/goalkeeper.gd`): READY, REACT 0.16s, DIVE 0.48s, HOLD 0.28s, RECOVER 0.42s. He commits. He does not track after the dive. Prediction under-reads late curl so a heavy hook can beat him. SIUUU sends him the wrong way and low. Assign one `global_transform`. Setting `rotation` after `global_position` on an `AnimatableBody3D` zeroes x. Positive rotation.x tips the head toward +Z. Positive rotation.z tips the head toward -X, so a dive to +X uses a negative roll. Home is about (0, 0.82, -10.32).
 
@@ -103,13 +105,13 @@ Stands, crowd, boards, floodlights, the keeper, and the wall are still primitive
 ## Deliberately not done
 
 - Bezier or other scripted flight into the top corner. The user was shown that arcade option. Shots still follow the swipe. Add a locked curve only if they ask for it.
-- Shot-feel retune. A flick and a whip still land in the same 6 to 13.5 impulse band. Magnus stays at 0.036 with no spin decay. Lift does not read topspin dip or backspin hang. Wall and keeper contact is still box collision. The user has said the swipe physics feel bad. Do not change these numbers unless they ask again.
+- Flick versus whip still land in the same 6 to 13.5 impulse band. Lift does not read topspin dip or backspin hang. Wall and keeper contact is still box collision. Do not change these unless they ask.
 - Forward+ renderer. The mobile renderer is the right one for the TB336FU.
 - Real keeper, wall, stand, and crowd meshes. Those wait on the drop folders.
 
 ## Last device state
 
-The Jolt build was exported, installed on `HA2BDA3D`, and launched (`am start` exit 0) on 2026-10-07. That APK includes the Grass001 pitch, the Poly Haven sky and ball, and Jolt. The user has not yet said how that build feels.
+The Jolt build was exported, installed on `HA2BDA3D`, and launched (`am start` exit 0) on 2026-10-07. That APK includes the Grass001 pitch, the Poly Haven sky and ball, and Jolt. It does not include the swipe-follow fix. Pull, smoke, export, and `adb install -r -t` before judging the new aim.
 
 ## If you change play
 

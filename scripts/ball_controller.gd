@@ -1,8 +1,8 @@
 extends RigidBody3D
 class_name BallController
-## Swipe-to-shoot. Screen-up is -Z (toward the goal). Screen-right is +X.
-## Curl comes from the bow of the finger path, so a long inward hook bends
-## the ball that way. A straight swipe stays straight.
+## Swipe-to-shoot. The chord of the finger path is the aim. The bow is the curl.
+## Screen-up is toward the goal on screen, not world -Z, so a side spot still
+## shoots at the goal the camera is showing.
 
 signal shot_taken(super_shot: bool)
 
@@ -14,7 +14,7 @@ signal shot_taken(super_shot: bool)
 @export var max_lift: float = 3.4
 @export var spin_per_pixel: float = 0.05
 @export var max_spin: float = 9.0
-@export var magnus_coefficient: float = 0.036
+@export var magnus_coefficient: float = 0.10
 @export var super_shot_multiplier: float = 2.5
 @export var airborne_clearance: float = 0.08
 @export var ready_speed: float = 0.4
@@ -78,10 +78,9 @@ func _release_swipe() -> void:
 	if chord.y < min_swipe_pixels:
 		return
 	var duration := maxf(0.016, (Time.get_ticks_msec() - _start_msec) / 1000.0)
-	var release := _release_vector(_points)
-	if release.y <= 0.0:
-		release = chord
-	_apply_shot(release, curl_pixels(_points), duration, _path_length(_points))
+	# The line from finger-down to finger-up is the shot they drew.
+	# The tail used to override that, so a hook left along a different line.
+	_apply_shot(chord, curl_pixels(_points), duration, _path_length(_points))
 
 
 func _can_shoot() -> bool:
@@ -112,41 +111,25 @@ func _path_length(points: PackedVector2Array) -> float:
 	return total
 
 
-## Last portion of the path, in screen-up space. This is the launch direction.
-func _release_vector(points: PackedVector2Array) -> Vector2:
-	var total := _path_length(points)
-	var walked := 0.0
-	var mark := total * 0.62
-	for i in range(1, points.size()):
-		var step := points[i - 1].distance_to(points[i])
-		if walked + step >= mark:
-			return _to_up(points[points.size() - 1]) - _to_up(points[i - 1])
-		walked += step
-	return _to_up(points[points.size() - 1]) - _to_up(points[0])
-
-
-## Positive means the path bows to screen-right of its travel, so the ball bends to +X.
-## A long inward hook (the finger path bends back toward the goal) returns a large value.
+## Positive means the path bows to screen-right of its chord, so the ball bends that way.
+## A straight diagonal has no bow and must not curl. Side aim is the chord, not spin.
 func curl_pixels(points: PackedVector2Array) -> float:
 	if points.size() < 3:
-		if points.size() < 2:
-			return 0.0
-		var short := _to_up(points[1]) - _to_up(points[0])
-		return short.x * 0.28
+		return 0.0
 	var start := _to_up(points[0])
 	var chord := _to_up(points[points.size() - 1]) - start
 	var span := chord.length()
 	if span < 1.0:
 		return 0.0
 	var dir := chord / span
-	# Travel (0, +1) is up the screen, toward the goal. Clockwise normal is world/screen right (+1, 0).
+	# Travel (0, +1) is up the screen. Its right-hand normal is screen-right.
 	var right := Vector2(dir.y, -dir.x)
 	var bow := 0.0
 	for point in points:
 		var signed := (_to_up(point) - start).dot(right)
 		if absf(signed) > absf(bow):
 			bow = signed
-	return bow + chord.x * 0.28
+	return bow
 
 
 func _apply_shot(screen_up: Vector2, curve_pixels: float, duration: float, path_pixels: float = -1.0) -> void:
@@ -159,21 +142,24 @@ func _apply_shot(screen_up: Vector2, curve_pixels: float, duration: float, path_
 	var speed_n := clampf(speed / 1700.0, 0.0, 1.0)
 	var power_n := clampf(length_n * 0.72 + speed_n * 0.5, 0.0, 1.0)
 	var strength := lerpf(min_impulse, max_impulse, power_n)
-	# Up the screen is -Z. Right on the screen is +X.
-	var aim := Vector3(clamped.x, 0.0, -clamped.y).normalized()
+	var aim := _screen_to_world(clamped)
 	var impulse := aim * strength
 	var upright := clampf(clamped.y / maxf(clamped.length(), 1.0), 0.0, 1.0)
 	impulse.y = lerpf(min_lift, max_lift, upright) * lerpf(0.75, 1.0, power_n)
 
 	var super_shot := _super_shot_active()
 	if super_shot:
-		impulse.z *= super_shot_multiplier
+		var lift := impulse.y
+		impulse.y = 0.0
+		impulse *= super_shot_multiplier
+		impulse.y = lift
 		angular_velocity = Vector3.ZERO
 		fire_trail.restart()
 		fire_trail.emitting = true
 	else:
 		# Positive curve_pixels (bow to screen-right) sets negative spin.
-		# With v along -Z, ω.y < 0 makes ω × v point to +X.
+		# Vertical spin bends to the right of the velocity, which is screen-right
+		# when the camera is behind the shot.
 		var spin := clampf(-curve_pixels * spin_per_pixel, -max_spin, max_spin)
 		angular_velocity = Vector3(0.0, spin, 0.0)
 		fire_trail.emitting = false
@@ -181,6 +167,28 @@ func _apply_shot(screen_up: Vector2, curve_pixels: float, duration: float, path_
 	sleeping = false
 	apply_central_impulse(impulse)
 	shot_taken.emit(super_shot)
+
+
+## Screen-right and screen-up become the camera's ground axes, so the ball
+## leaves along the line the finger drew on the picture of the goal.
+func _screen_to_world(screen_up: Vector2) -> Vector3:
+	var forward := Vector3(0.0, 0.0, -1.0)
+	var right := Vector3(1.0, 0.0, 0.0)
+	var cam := get_viewport().get_camera_3d()
+	if cam != null:
+		var cam_forward := -cam.global_transform.basis.z
+		cam_forward.y = 0.0
+		if cam_forward.length() > 0.05:
+			forward = cam_forward.normalized()
+		var cam_right := cam.global_transform.basis.x
+		cam_right.y = 0.0
+		if cam_right.length() > 0.05:
+			right = cam_right.normalized()
+	var aim := right * screen_up.x + forward * screen_up.y
+	aim.y = 0.0
+	if aim.length() < 0.001:
+		return forward
+	return aim.normalized()
 
 
 func _physics_process(_delta: float) -> void:
