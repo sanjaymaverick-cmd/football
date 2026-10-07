@@ -39,6 +39,7 @@ var _scored_goal: bool = false
 @onready var siuuu_voice: AudioStreamPlayer = $SiuuuVoice
 
 var _ambience: AudioStreamPlayer
+var _net: AudioStreamPlayer
 
 
 func _ready() -> void:
@@ -61,6 +62,10 @@ func _ready() -> void:
 	_ambience.stream = CrowdAudio.ambience()
 	add_child(_ambience)
 	_ambience.play()
+	_net = AudioStreamPlayer.new()
+	_net.stream = CrowdAudio.net()
+	_net.volume_db = -6.0
+	add_child(_net)
 	_refresh_score()
 	_apply_set_piece(0)
 
@@ -99,6 +104,8 @@ func _on_score_zone(body: Node) -> void:
 	_refresh_score()
 	banner.text = "GOAL!"
 	banner.visible = true
+	if _net != null:
+		_net.play()
 	if not is_siuuu_active:
 		cheer_goal.play()
 	_schedule_reset()

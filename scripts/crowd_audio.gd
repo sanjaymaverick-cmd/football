@@ -1,5 +1,5 @@
 extends RefCounted
-## Layered stadium bed and cheers. Synthetic, not a recorded crowd or a voice.
+## Layered stadium bed, cheers, and contact hits. Synthetic, not a recorded crowd or a voice.
 
 const RATE := 16000
 
@@ -57,6 +57,36 @@ static func cheer(big: bool) -> AudioStreamWAV:
 		tone /= float(freqs.size())
 		var body := low * 0.7 + band * 0.45 + tone * 0.28 + clap
 		samples[i] = body * env * attack * (1.15 if big else 0.95)
+	return _wav(samples, false)
+
+
+static func kick() -> AudioStreamWAV:
+	return _hit(0.14, 70.0, 180.0, 41, 0.85)
+
+
+static func post() -> AudioStreamWAV:
+	return _hit(0.09, 420.0, 980.0, 77, 0.55)
+
+
+static func net() -> AudioStreamWAV:
+	return _hit(0.32, 140.0, 260.0, 23, 0.35)
+
+
+static func _hit(seconds: float, low_hz: float, ring_hz: float, seed: int, noise_mix: float) -> AudioStreamWAV:
+	var n := int(RATE * seconds)
+	var samples := PackedFloat32Array()
+	samples.resize(n)
+	var noise := _Noise.new(seed)
+	var band := 0.0
+	for i in n:
+		var t := float(i) / float(RATE)
+		var attack := clampf(t / 0.004, 0.0, 1.0)
+		var env := pow(1.0 - clampf(t / seconds, 0.0, 1.0), 1.4)
+		var white := noise.next()
+		band += (white - band) * 0.35
+		var body := sin(TAU * low_hz * t) * exp(-t * 28.0)
+		var ring := sin(TAU * ring_hz * t) * exp(-t * 46.0)
+		samples[i] = (body * 0.7 + ring * 0.35 + band * noise_mix) * env * attack
 	return _wav(samples, false)
 
 

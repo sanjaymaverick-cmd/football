@@ -1,8 +1,8 @@
 extends RigidBody3D
 class_name BallController
-## Swipe-to-shoot. The chord of the finger path is the aim. The bow is the curl.
-## Screen-up is toward the goal on screen, not world -Z, so a side spot still
-## shoots at the goal the camera is showing.
+## Swipe-to-shoot. The chord is the aim. The sideways bow is curl.
+## A bow toward the bottom of the screen is topspin and dips the ball.
+## Air drag and spin-parameter Magnus run only while the ball is airborne.
 
 signal shot_taken(super_shot: bool)
 
@@ -13,11 +13,18 @@ signal shot_taken(super_shot: bool)
 @export var min_lift: float = 2.2
 @export var max_lift: float = 3.4
 @export var spin_per_pixel: float = 0.05
-@export var max_spin: float = 9.0
+@export var max_spin: float = 18.0
 @export var magnus_coefficient: float = 0.10
 @export var super_shot_multiplier: float = 2.5
 @export var airborne_clearance: float = 0.08
 @export var ready_speed: float = 0.4
+@export var air_density: float = 1.2
+@export var drag_coefficient: float = 0.25
+@export var lift_slope: float = 8.0
+@export var lift_max: float = 0.5
+
+const BALL_RADIUS := 0.11
+const BALL_AREA := 0.038
 
 var spawn_position: Vector3 = Vector3.ZERO
 
@@ -25,6 +32,9 @@ var _finger: int = -1
 var _start_msec: int = 0
 var _tracking: bool = false
 var _points: PackedVector2Array = PackedVector2Array()
+var _kick: AudioStreamPlayer
+var _post: AudioStreamPlayer
+var _post_lock: float = 0.0
 
 @onready var fire_trail: GPUParticles3D = $FireTrail
 
@@ -32,6 +42,19 @@ var _points: PackedVector2Array = PackedVector2Array()
 func _ready() -> void:
 	spawn_position = global_position
 	add_to_group("ball")
+	angular_damp = 0.12
+	contact_monitor = true
+	max_contacts_reported = 4
+	body_entered.connect(_on_body_entered)
+	var sounds := load("res://scripts/crowd_audio.gd")
+	_kick = AudioStreamPlayer.new()
+	_kick.stream = sounds.kick()
+	_kick.volume_db = -4.0
+	add_child(_kick)
+	_post = AudioStreamPlayer.new()
+	_post.stream = sounds.post()
+	_post.volume_db = -5.0
+	add_child(_post)
 
 
 func _input(event: InputEvent) -> void:
@@ -78,9 +101,7 @@ func _release_swipe() -> void:
 	if chord.y < min_swipe_pixels:
 		return
 	var duration := maxf(0.016, (Time.get_ticks_msec() - _start_msec) / 1000.0)
-	# The line from finger-down to finger-up is the shot they drew.
-	# The tail used to override that, so a hook left along a different line.
-	_apply_shot(chord, curl_pixels(_points), duration, _path_length(_points))
+	_apply_shot(chord, curl_pixels(_points), duration, _path_length(_points), dip_pixels(_points))
 
 
 func _can_shoot() -> bool:
@@ -99,7 +120,6 @@ func _super_shot_active() -> bool:
 	return manager != null and manager.get("is_siuuu_active") == true
 
 
-## Screen pixels, y down, become x-right y-up.
 func _to_up(screen_point: Vector2) -> Vector2:
 	return Vector2(screen_point.x, -screen_point.y)
 
@@ -111,8 +131,7 @@ func _path_length(points: PackedVector2Array) -> float:
 	return total
 
 
-## Positive means the path bows to screen-right of its chord, so the ball bends that way.
-## A straight diagonal has no bow and must not curl. Side aim is the chord, not spin.
+## Positive means the path bows to screen-right of its chord.
 func curl_pixels(points: PackedVector2Array) -> float:
 	if points.size() < 3:
 		return 0.0
@@ -122,7 +141,6 @@ func curl_pixels(points: PackedVector2Array) -> float:
 	if span < 1.0:
 		return 0.0
 	var dir := chord / span
-	# Travel (0, +1) is up the screen. Its right-hand normal is screen-right.
 	var right := Vector2(dir.y, -dir.x)
 	var bow := 0.0
 	for point in points:
@@ -132,7 +150,28 @@ func curl_pixels(points: PackedVector2Array) -> float:
 	return bow
 
 
-func _apply_shot(screen_up: Vector2, curve_pixels: float, duration: float, path_pixels: float = -1.0) -> void:
+## Positive means the path bows toward the bottom of the screen, so the ball dips.
+func dip_pixels(points: PackedVector2Array) -> float:
+	if points.size() < 3:
+		return 0.0
+	var start := _to_up(points[0])
+	var chord := _to_up(points[points.size() - 1]) - start
+	var span := chord.length()
+	if span < 1.0:
+		return 0.0
+	var dir := chord / span
+	var screen_down := Vector2(0.0, -1.0)
+	var bow := 0.0
+	for point in points:
+		var offset := _to_up(point) - start
+		var lateral := offset - dir * offset.dot(dir)
+		var signed := lateral.dot(screen_down)
+		if absf(signed) > absf(bow):
+			bow = signed
+	return bow
+
+
+func _apply_shot(screen_up: Vector2, curve_pixels: float, duration: float, path_pixels: float = -1.0, dip: float = 0.0) -> void:
 	var clamped := screen_up.limit_length(max_swipe_pixels)
 	if clamped.y <= 0.0:
 		return
@@ -157,20 +196,20 @@ func _apply_shot(screen_up: Vector2, curve_pixels: float, duration: float, path_
 		fire_trail.restart()
 		fire_trail.emitting = true
 	else:
-		# Positive curve_pixels (bow to screen-right) sets negative spin.
-		# Vertical spin bends to the right of the velocity, which is screen-right
-		# when the camera is behind the shot.
-		var spin := clampf(-curve_pixels * spin_per_pixel, -max_spin, max_spin)
-		angular_velocity = Vector3(0.0, spin, 0.0)
+		# Positive bow sets negative side spin, which bends to screen-right.
+		# Positive dip sets negative pitch spin. With v along -Z that force points down.
+		var side := clampf(-curve_pixels * spin_per_pixel, -max_spin, max_spin)
+		var pitch := clampf(-dip * spin_per_pixel, -max_spin, max_spin)
+		angular_velocity = Vector3(pitch, side, 0.0)
 		fire_trail.emitting = false
 
 	sleeping = false
 	apply_central_impulse(impulse)
+	if _kick != null:
+		_kick.play()
 	shot_taken.emit(super_shot)
 
 
-## Screen-right and screen-up become the camera's ground axes, so the ball
-## leaves along the line the finger drew on the picture of the goal.
 func _screen_to_world(screen_up: Vector2) -> Vector3:
 	var forward := Vector3(0.0, 0.0, -1.0)
 	var right := Vector3(1.0, 0.0, 0.0)
@@ -191,17 +230,42 @@ func _screen_to_world(screen_up: Vector2) -> Vector3:
 	return aim.normalized()
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
+	_post_lock = maxf(0.0, _post_lock - delta)
 	if fire_trail.emitting:
 		fire_trail.global_rotation = Vector3.ZERO
 	if _super_shot_active() or not _is_airborne():
 		return
-	var curve := angular_velocity.cross(linear_velocity) * magnus_coefficient
-	apply_central_force(curve)
+	var velocity := linear_velocity
+	var speed := velocity.length()
+	if speed < 0.4:
+		return
+	var drag := -0.5 * air_density * drag_coefficient * BALL_AREA * speed * velocity
+	apply_central_force(drag)
+	var spin := angular_velocity.length()
+	if spin < 0.2:
+		return
+	var spin_param := clampf(BALL_RADIUS * spin / speed, 0.0, 0.6)
+	var lift := clampf(lift_slope * spin_param, 0.0, lift_max)
+	var magnus_dir := angular_velocity.cross(velocity)
+	if magnus_dir.length_squared() < 0.0001:
+		return
+	var magnus := 0.5 * air_density * lift * BALL_AREA * speed * magnus_dir.normalized() * speed
+	apply_central_force(magnus)
 
 
 func _is_airborne() -> bool:
 	return global_position.y > spawn_position.y + airborne_clearance
+
+
+func _on_body_entered(body: Node) -> void:
+	if _post == null or _post_lock > 0.0:
+		return
+	var name := str(body.name)
+	if name != "LeftPost" and name != "RightPost" and name != "Crossbar":
+		return
+	_post_lock = 0.18
+	_post.play()
 
 
 func place_at(world_pos: Vector3) -> void:
