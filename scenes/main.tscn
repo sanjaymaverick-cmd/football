@@ -1,0 +1,607 @@
+[gd_scene load_steps=54 format=3 uid="uid://siuuumainscene01"]
+
+[ext_resource type="Script" path="res://scripts/ball_controller.gd" id="1_ball"]
+[ext_resource type="Script" path="res://scripts/camera_controller.gd" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/goalkeeper.gd" id="3_keeper"]
+[ext_resource type="Script" path="res://scripts/game_manager.gd" id="4_game"]
+[ext_resource type="PackedScene" path="res://scenes/target_zone.tscn" id="5_target"]
+[ext_resource type="AudioStreamWAV" path="res://audio/crowd_goal.wav" id="6_goal"]
+[ext_resource type="AudioStreamWAV" path="res://audio/crowd_super.wav" id="7_super"]
+[ext_resource type="AudioStreamWAV" path="res://audio/siuuu_stinger.wav" id="8_siuuu"]
+[ext_resource type="Script" path="res://scripts/stadium.gd" id="9_stadium"]
+[ext_resource type="Script" path="res://scripts/defensive_wall.gd" id="10_wall"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_ball"]
+friction = 0.8
+bounce = 0.4
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_grass"]
+friction = 0.9
+bounce = 0.15
+absorbent = true
+
+[sub_resource type="StandardMaterial3D" id="Mat_grass"]
+albedo_color = Color(0.16, 0.62, 0.22, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_ground"]
+material = SubResource("Mat_grass")
+size = Vector3(16, 0.2, 28)
+
+[sub_resource type="BoxShape3D" id="BoxShape_ground"]
+size = Vector3(16, 0.2, 28)
+
+[sub_resource type="StandardMaterial3D" id="Mat_line"]
+shading_mode = 0
+albedo_color = Color(0.95, 0.95, 0.95, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_goal_line"]
+material = SubResource("Mat_line")
+size = Vector3(8, 0.02, 0.1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_box_side"]
+material = SubResource("Mat_line")
+size = Vector3(0.08, 0.02, 4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_box_front"]
+material = SubResource("Mat_line")
+size = Vector3(8, 0.02, 0.08)
+
+[sub_resource type="CylinderMesh" id="Cyl_spot"]
+material = SubResource("Mat_line")
+top_radius = 0.16
+bottom_radius = 0.16
+height = 0.02
+radial_segments = 12
+
+[sub_resource type="StandardMaterial3D" id="Mat_post"]
+albedo_color = Color(0.96, 0.96, 0.97, 1)
+roughness = 0.22
+metallic = 0.08
+
+[sub_resource type="BoxMesh" id="BoxMesh_post"]
+material = SubResource("Mat_post")
+size = Vector3(0.12, 2.44, 0.12)
+
+[sub_resource type="BoxShape3D" id="BoxShape_post"]
+size = Vector3(0.12, 2.44, 0.12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_bar"]
+material = SubResource("Mat_post")
+size = Vector3(7.44, 0.12, 0.12)
+
+[sub_resource type="BoxShape3D" id="BoxShape_bar"]
+size = Vector3(7.44, 0.12, 0.12)
+
+[sub_resource type="StandardMaterial3D" id="Mat_net"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 1, 1, 0.55)
+
+[sub_resource type="BoxMesh" id="BoxMesh_net_v"]
+material = SubResource("Mat_net")
+size = Vector3(0.035, 2.15, 0.035)
+
+[sub_resource type="BoxMesh" id="BoxMesh_net_h"]
+material = SubResource("Mat_net")
+size = Vector3(6.2, 0.035, 0.035)
+
+[sub_resource type="StandardMaterial3D" id="Mat_ball"]
+albedo_color = Color(0.98, 0.98, 0.98, 1)
+roughness = 0.22
+metallic = 0.04
+
+[sub_resource type="SphereMesh" id="SphereMesh_ball"]
+material = SubResource("Mat_ball")
+radius = 0.11
+height = 0.22
+radial_segments = 12
+rings = 6
+
+[sub_resource type="SphereShape3D" id="SphereShape_ball"]
+radius = 0.11
+
+[sub_resource type="StandardMaterial3D" id="Mat_stripe"]
+albedo_color = Color(0.08, 0.08, 0.08, 1)
+roughness = 0.4
+
+[sub_resource type="TorusMesh" id="Torus_stripe"]
+material = SubResource("Mat_stripe")
+inner_radius = 0.09
+outer_radius = 0.118
+rings = 6
+ring_segments = 12
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 1
+background_color = Color(0.42, 0.66, 0.95, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.62, 0.74, 1)
+ambient_light_energy = 0.28
+tonemap_mode = 3
+tonemap_exposure = 1.14
+adjustment_enabled = true
+adjustment_brightness = 1.04
+adjustment_contrast = 1.22
+adjustment_saturation = 1.3
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.65
+glow_bloom = 0.06
+glow_hdr_threshold = 1.1
+
+[sub_resource type="BoxMesh" id="BoxMesh_score"]
+size = Vector3(7, 2.32, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape_score"]
+size = Vector3(7, 2.32, 2)
+
+[sub_resource type="StandardMaterial3D" id="Mat_score"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.2, 1, 0.35, 0.12)
+
+[sub_resource type="StandardMaterial3D" id="Mat_shirt"]
+albedo_color = Color(0.05, 0.48, 0.42, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Mat_skin"]
+albedo_color = Color(0.93, 0.72, 0.52, 1)
+roughness = 0.65
+
+[sub_resource type="StandardMaterial3D" id="Mat_shorts"]
+albedo_color = Color(0.1, 0.12, 0.14, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Mat_eye"]
+shading_mode = 0
+albedo_color = Color(0.05, 0.05, 0.05, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_torso"]
+material = SubResource("Mat_shirt")
+size = Vector3(0.52, 0.55, 0.28)
+
+[sub_resource type="SphereMesh" id="Sphere_head"]
+material = SubResource("Mat_skin")
+radius = 0.16
+height = 0.32
+radial_segments = 8
+rings = 4
+
+[sub_resource type="BoxMesh" id="BoxMesh_shorts"]
+material = SubResource("Mat_shorts")
+size = Vector3(0.5, 0.26, 0.26)
+
+[sub_resource type="BoxMesh" id="BoxMesh_limb"]
+material = SubResource("Mat_skin")
+size = Vector3(0.14, 0.4, 0.14)
+
+[sub_resource type="BoxMesh" id="BoxMesh_eye"]
+material = SubResource("Mat_eye")
+size = Vector3(0.045, 0.045, 0.03)
+
+[sub_resource type="BoxShape3D" id="BoxShape_keeper"]
+size = Vector3(0.95, 1.5, 0.7)
+
+[sub_resource type="ParticleProcessMaterial" id="Particles_fire"]
+direction = Vector3(0, 0.35, 1)
+spread = 22.0
+initial_velocity_min = 0.6
+initial_velocity_max = 2.0
+gravity = Vector3(0, 0.8, 0)
+scale_min = 0.35
+scale_max = 1.0
+color = Color(1, 0.38, 0.05, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_fire"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+billboard_mode = 3
+albedo_color = Color(1, 0.42, 0.05, 0.9)
+
+[sub_resource type="QuadMesh" id="Quad_fire"]
+material = SubResource("Mat_fire")
+size = Vector2(0.28, 0.28)
+
+[sub_resource type="StyleBoxFlat" id="Style_combo_bg"]
+bg_color = Color(0.04, 0.1, 0.16, 0.82)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[sub_resource type="StyleBoxFlat" id="Style_combo_fill"]
+bg_color = Color(1, 0.55, 0.08, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="Style_button"]
+bg_color = Color(1, 0.42, 0.08, 1)
+corner_radius_top_left = 28
+corner_radius_top_right = 28
+corner_radius_bottom_right = 28
+corner_radius_bottom_left = 28
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.642788, 0.766044, 0, -0.766044, 0.642788, 0, 8, 4)
+light_color = Color(1, 0.97, 0.9, 1)
+light_energy = 2.05
+shadow_enabled = true
+directional_shadow_max_distance = 60.0
+shadow_opacity = 0.82
+
+[node name="Ground" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, -8)
+physics_material_override = SubResource("PhysicsMaterial_grass")
+collision_layer = 1
+collision_mask = 2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("BoxMesh_ground")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("BoxShape_ground")
+
+[node name="Markings" type="Node3D" parent="."]
+
+[node name="GoalLine" type="MeshInstance3D" parent="Markings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -11)
+mesh = SubResource("BoxMesh_goal_line")
+
+[node name="BoxLeft" type="MeshInstance3D" parent="Markings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.02, -9)
+mesh = SubResource("BoxMesh_box_side")
+
+[node name="BoxRight" type="MeshInstance3D" parent="Markings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.02, -9)
+mesh = SubResource("BoxMesh_box_side")
+
+[node name="BoxFront" type="MeshInstance3D" parent="Markings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -7)
+mesh = SubResource("BoxMesh_box_front")
+
+[node name="PenaltySpot" type="MeshInstance3D" parent="Markings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
+mesh = SubResource("Cyl_spot")
+
+[node name="Stadium" type="Node3D" parent="."]
+script = ExtResource("9_stadium")
+
+[node name="DefensiveWall" type="Node3D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("10_wall")
+
+[node name="GoalPosts" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -11)
+
+[node name="LeftPost" type="StaticBody3D" parent="GoalPosts"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.66, 1.22, 0)
+collision_layer = 1
+collision_mask = 2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="GoalPosts/LeftPost"]
+mesh = SubResource("BoxMesh_post")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GoalPosts/LeftPost"]
+shape = SubResource("BoxShape_post")
+
+[node name="RightPost" type="StaticBody3D" parent="GoalPosts"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.66, 1.22, 0)
+collision_layer = 1
+collision_mask = 2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="GoalPosts/RightPost"]
+mesh = SubResource("BoxMesh_post")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GoalPosts/RightPost"]
+shape = SubResource("BoxShape_post")
+
+[node name="Crossbar" type="StaticBody3D" parent="GoalPosts"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.44, 0)
+collision_layer = 1
+collision_mask = 2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="GoalPosts/Crossbar"]
+mesh = SubResource("BoxMesh_bar")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GoalPosts/Crossbar"]
+shape = SubResource("BoxShape_bar")
+
+[node name="Net" type="Node3D" parent="GoalPosts"]
+
+[node name="V1" type="MeshInstance3D" parent="GoalPosts/Net"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.8, 1.1, -0.45)
+mesh = SubResource("BoxMesh_net_v")
+
+[node name="V2" type="MeshInstance3D" parent="GoalPosts/Net"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.4, 1.1, -0.45)
+mesh = SubResource("BoxMesh_net_v")
+
+[node name="V3" type="MeshInstance3D" parent="GoalPosts/Net"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -0.45)
+mesh = SubResource("BoxMesh_net_v")
+
+[node name="V4" type="MeshInstance3D" parent="GoalPosts/Net"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4, 1.1, -0.45)
+mesh = SubResource("BoxMesh_net_v")
+
+[node name="V5" type="MeshInstance3D" parent="GoalPosts/Net"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.8, 1.1, -0.45)
+mesh = SubResource("BoxMesh_net_v")
+
+[node name="H1" type="MeshInstance3D" parent="GoalPosts/Net"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, -0.45)
+mesh = SubResource("BoxMesh_net_h")
+
+[node name="H2" type="MeshInstance3D" parent="GoalPosts/Net"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, -0.45)
+mesh = SubResource("BoxMesh_net_h")
+
+[node name="H3" type="MeshInstance3D" parent="GoalPosts/Net"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -0.45)
+mesh = SubResource("BoxMesh_net_h")
+
+[node name="ScoreZone" type="Area3D" parent="."]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.16, -12)
+collision_layer = 4
+collision_mask = 2
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ScoreZone"]
+shape = SubResource("BoxShape_score")
+
+[node name="DebugMesh" type="MeshInstance3D" parent="ScoreZone"]
+visible = false
+mesh = SubResource("BoxMesh_score")
+surface_material_override/0 = SubResource("Mat_score")
+
+[node name="TargetLeft" parent="." instance=ExtResource("5_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.55, 1.9, -10.72)
+bonus_points = 50
+glow_color = Color(1, 0.78, 0.15, 1)
+
+[node name="TargetRight" parent="." instance=ExtResource("5_target")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 1.9, -10.72)
+bonus_points = 50
+glow_color = Color(0.2, 0.9, 1, 1)
+
+[node name="Goalkeeper" type="AnimatableBody3D" parent="."]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.82, -10.32)
+collision_layer = 1
+collision_mask = 2
+script = ExtResource("3_keeper")
+
+[node name="Torso" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0)
+mesh = SubResource("BoxMesh_torso")
+
+[node name="Shorts" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22, 0)
+mesh = SubResource("BoxMesh_shorts")
+
+[node name="Head" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+mesh = SubResource("Sphere_head")
+
+[node name="EyeL" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.06, 0.58, 0.14)
+mesh = SubResource("BoxMesh_eye")
+
+[node name="EyeR" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.06, 0.58, 0.14)
+mesh = SubResource("BoxMesh_eye")
+
+[node name="ArmL" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.36, 0.1, 0)
+mesh = SubResource("BoxMesh_limb")
+
+[node name="ArmR" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.36, 0.1, 0)
+mesh = SubResource("BoxMesh_limb")
+
+[node name="LegL" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.14, -0.52, 0)
+mesh = SubResource("BoxMesh_limb")
+
+[node name="LegR" type="MeshInstance3D" parent="Goalkeeper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.14, -0.52, 0)
+mesh = SubResource("BoxMesh_limb")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Goalkeeper"]
+shape = SubResource("BoxShape_keeper")
+
+[node name="Ball" type="RigidBody3D" parent="." groups=["ball"]]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.11, 0)
+mass = 0.43
+physics_material_override = SubResource("PhysicsMaterial_ball")
+gravity_scale = 1.0
+continuous_cd = true
+can_sleep = true
+linear_damp_mode = 1
+linear_damp = 0.05
+angular_damp_mode = 1
+angular_damp = 0.4
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_ball")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ball"]
+mesh = SubResource("SphereMesh_ball")
+
+[node name="Stripe" type="MeshInstance3D" parent="Ball"]
+transform = Transform3D(1, 0, 0, 0, 0.35, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("Torus_stripe")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball"]
+shape = SubResource("SphereShape_ball")
+
+[node name="FireTrail" type="GPUParticles3D" parent="Ball"]
+emitting = false
+amount = 40
+lifetime = 0.35
+randomness = 0.35
+visibility_aabb = AABB(-4, -2, -4, 8, 6, 8)
+local_coords = false
+process_material = SubResource("Particles_fire")
+draw_pass_1 = SubResource("Quad_fire")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 0.951057, 0.309017, 0, -0.309017, 0.951057, 0, 1.81, 2.6)
+current = true
+fov = 84.0
+near = 0.08
+far = 180.0
+script = ExtResource("2_camera")
+
+[node name="GameManager" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("4_game")
+
+[node name="CrowdGoal" type="AudioStreamPlayer" parent="GameManager"]
+stream = ExtResource("6_goal")
+volume_db = -8.0
+
+[node name="CrowdSuper" type="AudioStreamPlayer" parent="GameManager"]
+stream = ExtResource("7_super")
+volume_db = -4.0
+
+[node name="SiuuuVoice" type="AudioStreamPlayer" parent="GameManager"]
+stream = ExtResource("8_siuuu")
+volume_db = -3.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ScoreLabel" type="Label" parent="UI/HUD"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 36.0
+offset_top = 64.0
+offset_right = 780.0
+offset_bottom = 150.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.04, 0.12, 0.08, 1)
+theme_override_constants/outline_size = 14
+theme_override_font_sizes/font_size = 52
+text = "SCORE: 0"
+
+[node name="ComboCaption" type="Label" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -168.0
+offset_top = 560.0
+offset_right = -36.0
+offset_bottom = 620.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.05, 0.08, 0.16, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 28
+text = "COMBO"
+horizontal_alignment = 1
+
+[node name="ComboBar" type="ProgressBar" parent="UI/HUD"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -132.0
+offset_top = 630.0
+offset_right = -48.0
+offset_bottom = 1180.0
+mouse_filter = 2
+theme_override_styles/background = SubResource("Style_combo_bg")
+theme_override_styles/fill = SubResource("Style_combo_fill")
+max_value = 3.0
+show_percentage = false
+fill_mode = 3
+
+[node name="Banner" type="Label" parent="UI/HUD"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -460.0
+offset_top = 280.0
+offset_right = 460.0
+offset_bottom = 420.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.15, 1)
+theme_override_colors/font_outline_color = Color(0.35, 0.08, 0.02, 1)
+theme_override_constants/outline_size = 16
+theme_override_font_sizes/font_size = 64
+text = "GOAL!"
+horizontal_alignment = 1
+
+[node name="SiuuuButton" type="Button" parent="UI/HUD" groups=["siuuu_button"]]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -90.0
+offset_right = 240.0
+offset_bottom = 90.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.18, 0.05, 0.02, 1)
+theme_override_font_sizes/font_size = 64
+theme_override_styles/normal = SubResource("Style_button")
+theme_override_styles/hover = SubResource("Style_button")
+theme_override_styles/pressed = SubResource("Style_button")
+disabled = true
+text = "SIUUU"
+
+[node name="HintLabel" type="Label" parent="UI/HUD"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -480.0
+offset_top = -280.0
+offset_right = 480.0
+offset_bottom = -70.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.1, 0.04, 1)
+theme_override_constants/outline_size = 12
+theme_override_font_sizes/font_size = 36
+text = "FREE KICK"
+horizontal_alignment = 1

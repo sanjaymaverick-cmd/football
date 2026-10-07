@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=3 uid="uid://siuuutargetzone"]
+
+[ext_resource type="Script" path="res://scripts/target_zone.gd" id="1_script"]
+
+[sub_resource type="TorusMesh" id="Torus_ring"]
+inner_radius = 0.26
+outer_radius = 0.46
+rings = 6
+ring_segments = 12
+
+[sub_resource type="SphereShape3D" id="Sphere_zone"]
+radius = 0.48
+
+[node name="TargetZone" type="Area3D" groups=["target_zone"]]
+collision_layer = 4
+collision_mask = 2
+monitoring = true
+monitorable = false
+script = ExtResource("1_script")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("Torus_ring")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("Sphere_zone")
